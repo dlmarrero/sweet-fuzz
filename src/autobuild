@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# Defines logging functions
+source /src/logging.sh
+
+# Check if the directory containing the project source is in the enviornment
+# If not, set a default directory
+if [ -z "${SRC_DIR}" ]; then
+    SRC_DIR="/project"
+fi
+
+# Check if user has specified a fuzz compiler, else set defaults
+if [ -z "${FUZZ_CC}" ]; then
+    FUZZ_CC="afl-clang-fast"
+fi
+if [ -z "${FUZZ_CXX}" ]; then
+    FUZZ_CXX="afl-clang-fast++"
+fi
+
+# TODO allow the user to specify additional CFLAGS and set them as EXTRA_CFLAGS
+
+# Make sure the source directory exists
+if [ ! -d "$SRC_DIR" ]; then
+    error "Source directory $SRC_DIR does not exist!"
+fi
+
+# Paths where we'll create dirs for the fuzz and coverage builds
+FUZZ_DIR="$SRC_DIR-fuzz"
+COV_DIR="$SRC_DIR-cov"
+
+# Create 2 copies of the project for the fuzz and cov builds
+rm -rf "$FUZZ_DIR" "$COV_DIR"
+info "Copying source to $FUZZ_DIR for fuzzer build"
+cp -r "$SRC_DIR" "$FUZZ_DIR"
+info "Copying source to $COV_DIR for coverage build"
+cp -r "$SRC_DIR" "$COV_DIR"
+
+# Convenience vars for the build process
+DBG_FLAGS="-g -ggdb"
+COV_CFLAGS="-fprofile-arcs -ftest-coverage"
+COV_LFLAGS="-lgcov --coverage"
+
+# Check if the user provided a build script
+# If so, we run it for each of the three builds 
+# with the appropriate environment variables set
+if [ -n "$1" ]; then
+    # Make sure the file exists
+    if [ ! -e "$1" ]; then
+        error "Invalid path to build script: $1"
+    fi
+
+    # Create the debug build
+    cd "$SRC_DIR"
+    info dbg "running build script"
+    CFLAGS="-O0 $DBG_FLAGS" CXXFLAGS="-O0 $DBG_FLAGS" \
+        bash "$1"
+
+    if [ "$?" -ne 0 ]; then
+        error dbg "build script failed!"
+    fi
+
+    # Create the fuzz build
+    cd "$FUZZ_DIR"
+    info fuzz "running build script"
+    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS" CXXFLAGS="$DBG_FLAGS" \
+        bash "$1"
+
+    if [ "$?" -ne 0 ]; then
+        error fuzz "build script failed!"
+    fi
+
+    # Create the coverage build
+    cd "$COV_DIR"
+    info cov "running build script"
+    CFLAGS="$COV_CFLAGS" CXXFLAGS="$COV_CFLAGS" \
+        bash "$1"
+
+    if [ "$?" -ne 0 ]; then
+        error cov "build script failed!"
+    fi
+
+    exit 0
+fi
+
+# Check for a configure script and run it before we build
+# We run the configure script once for each build because
+# it's the most surefire way to get our flags passed to
+# the compiler (i.e., builds that use libtoolize)
+# TODO add ability to define configure opts (e.g. --disable-shared)
+if [ -e "$SRC_DIR/configure" ]; then
+    # Configure the debug build
+    cd "$SRC_DIR"
+    info dbg "running configure script"
+    CFLAGS="-O0 $DBG_FLAGS" CXXFLAGS="-O0 $DBG_FLAGS" \
+        ./configure
+
+    if [ "$?" -ne 0 ]; then
+        error dbg "configure failed!"
+    fi
+
+    # Configure the fuzz build
+    cd "$FUZZ_DIR"
+    info fuzz "running configure script"
+    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS" CXXFLAGS="$DBG_FLAGS" \
+        ./configure
+
+    if [ "$?" -ne 0 ]; then
+        error fuzz  "configure failed!"
+    fi
+
+    # Configure the cov build
+    cd "$COV_DIR"
+    info cov "running configure script"
+    CFLAGS="$COV_CFLAGS" CXXFLAGS="$COV_CFLAGS" LIBS="gcov"
+        ./configure
+
+    if [ "$?" -ne 0 ]; then
+        error cov "configure failed!"
+    fi
+fi
+
+# Next block checks for a Makefile. If not found, the other conditionals
+# work to determine the alternative build system in use
+if [ -e "$SRC_DIR/Makefile" ]; then
+    # First create the debug build (default compiler, -O0 -g -ggdb)
+    cd "$SRC_DIR"
+    log dbg "running make"
+    make clean &> /dev/null
+    make -j `nproc` CFLAGS="-O0 $DBG_FLAGS" CXXFLAGS="-O0 $DBG_FLAGS"
+
+    if [ "$?" -ne 0 ]; then
+        error dbg "make failed!"
+    fi
+
+    # Create fuzz build
+    cd "$FUZZ_DIR"
+    log fuzz "running make"
+    make clean &> /dev/null
+    make -j `nproc` \
+        CC="$FUZZ_CC" \
+        CXX="$FUZZ_CXX" \
+        CFLAGS="$DBG_FLAGS" \
+        CXXFLAGS="$DBG_FLAGS"
+
+    if [ "$?" -ne 0 ]; then
+        error fuzz "make failed!"
+    fi
+
+    # Run install on the instrumented project in case there are
+    # any libs or config files that need to be moved around
+    # Ignore errors because somtimes install recipe may not exist
+    make install 2> /dev/null
+
+    # Create coverage build
+    cd "$COV_DIR"
+    log cov "running make"
+    make clean &> /dev/null
+    make -j `nproc` \
+        CFLAGS="$COV_CFLAGS" \
+        CXXFLAGS="$COV_CFLAGS"
+
+    if [ "$?" -ne 0 ]; then
+        error cov "make failed!"
+    fi
+else
+    error "Unrecognized build system in $SRC_DIR!"
+fi
+

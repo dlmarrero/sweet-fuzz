@@ -1,0 +1,68 @@
+#!/usr/bin/env python3.7
+import argparse
+import logging
+import aflrunner
+import covrunner
+
+if __name__ == '__main__':
+    # Parser inherits from those created in the runner scripts
+    cov_parser = covrunner.init_parser(add_help=False)
+    afl_parser = aflrunner.init_parser(add_help=False)
+
+    parser = argparse.ArgumentParser(
+        description='Runs afl-fuzz, afl-cov, and serves the coverage report',
+        parents=[afl_parser, cov_parser],
+        usage='''fuzz.py [ options ] [ add'l afl-fuzz args ] --exec target_cmdline 
+       
+Required parameters:
+  --exec        - command-line args for target.
+                  path to binary must be relative to project root dir
+
+Optional afl-fuzz parameters:
+  -i dir        - input directory with test cases (/corpus)
+  -o dir        - output directory for fuzzer findings (/fuzz_out)
+  -j num        - number of afl-fuzz instances to run in master/slave mode (nproc / 2)
+  --fuzz-dir    - absolute path to root of fuzz build
+    
+  Other afl-fuzz parameters not listed can just be added to the arguments list.
+  For example, "fuzz.py -x dictionary.txt --exec ./the_bin @@" is valid.
+
+Optional afl-cov parameters:
+  --cov-dir     - absolute path to root of code coverage build (/*-cov)
+  --port        - web port for serving the code coverage report
+
+Other stuff:
+  -v            - increase verbosity [-v = INFO, -vv = DEBUG]
+        ''')
+    parser.add_argument("-v", action="count", help="increase output verbosity")
+
+    # It's not clean, but we assume any additional arguments are meant for AFL
+    # This way we can allow for setting any number of the afl++ arguments
+    # without actually having to add them to the parser. Lazy, but effective.
+    args, other_args = parser.parse_known_args()
+
+    # These next few funcs have side effects
+    # They will kill the program if the args are invalid
+    # They also modify the args (e.g. when resolving paths)
+    aflrunner.append_afl_args(args, other_args)
+    aflrunner.validate_args(args)
+    covrunner.validate_args(args)
+
+    # Set root logger level (default = WARN, -v = INFO, -vv+ = DEBUG)
+    if not args.v:
+        level = logging.WARN
+    elif args.v == 1:
+        level = logging.INFO
+    else:
+        level = logging.DEBUG
+
+    logging.getLogger().setLevel(level)
+
+    # Start all threads
+    threads = []
+    threads += aflrunner.start_afl_instances(args.j, args.afl_args, args.fuzz_cmdline)
+    threads += covrunner.start_cov_and_serve(args.cov_cmdline, args.fuzz_out, args.cov_dir, args.port)
+
+    # Wait on the threads
+    for t in threads:
+        t.join()
