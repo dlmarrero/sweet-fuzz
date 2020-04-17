@@ -30,14 +30,28 @@ def run_afl_instance(cpu_id: int, afl_args, cmdline: list, master=False):
     """
     logger = logging.getLogger("FUZZ-%02d" % cpu_id)
 
-    # Launch an afl-fuzz instance on the specified CPU
-    logger.info("Starting afl-fuzz instance on CPU %d in %s mode" % (cpu_id, "master" if master else "slave"))
+    # Set up the arguments to run afl-fuzz in master/slave with specific power schedules on specific CPUs
+    run_args = [ "taskset", "-c", str(cpu_id) ]             # Force AFL instance to run on a specific CPU
+    run_args += [ "/usr/local/bin/afl-fuzz", *afl_args ]    # Additional afl-fuzz args
+
+    # Set up power schedules for master/slaves based on afl++ recomendations:
+    # https://github.com/AFLplusplus/AFLplusplus/blob/master/docs/power_schedules.md
     instance_id = "fuzz_%02d" % cpu_id
-    run_args = [
-        "taskset", "-c", str(cpu_id),  # Force AFL instance to run on a specific CPU
-        "/usr/local/bin/afl-fuzz", "-M" if master else "-S", instance_id, *afl_args,
-        "--", *cmdline
-    ]
+    slave_schedules = [ 'coe', 'fast', 'explore' ]          # recommended power scheds for slaves
+    if master:
+        schedule = 'exploit'
+        run_args += [ '-M', instance_id, '-p', schedule ]
+    else:
+        # Select slave's power schedule in a round-robin fashion based on CPU id
+        assert cpu_id != 0  # Only the master instance should ever have cpu id 0
+        schedule = slave_schedules[cpu_id % len(slave_schedules)]
+        run_args += [ '-S', instance_id, '-p', schedule ]
+
+    # Finally, tack on the target's cmdline
+    run_args += [ "--", *cmdline ]
+
+    # Launch the afl-fuzz instance
+    logger.info("Starting %s afl-fuzz instance (power schedule: %s)" % ("master" if master else "slave", schedule))
     proc = subprocess.Popen(run_args, stdout=subprocess.PIPE, env={"AFL_NO_AFFINITY": '1'})
 
     # Monitor instance output
