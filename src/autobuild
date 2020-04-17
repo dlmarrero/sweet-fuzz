@@ -17,7 +17,9 @@ if [ -z "${FUZZ_CXX}" ]; then
     FUZZ_CXX="afl-clang-fast++"
 fi
 
-# TODO allow the user to specify additional CFLAGS and set them as EXTRA_CFLAGS
+# Allow the user to specify additional CFLAGS and set them as EXTRA_CFLAGS
+EXTRA_CFLAGS="${CFLAGS}"
+EXTRA_CXXFLAGS="${CXXFLAGS}"
 
 # Make sure the source directory exists
 if [ ! -d "$SRC_DIR" ]; then
@@ -52,7 +54,8 @@ if [ -n "$1" ]; then
     # Create the debug build
     cd "$SRC_DIR"
     info dbg "running build script"
-    CFLAGS="-O0 $DBG_FLAGS" CXXFLAGS="-O0 $DBG_FLAGS" \
+    CFLAGS="-O0 $DBG_FLAGS $EXTRA_CFLAGS" \
+	CXXFLAGS="-O0 $DBG_FLAGS $EXTRA_CXXFLAGS" \
         bash "$1"
 
     if [ "$?" -ne 0 ]; then
@@ -62,7 +65,8 @@ if [ -n "$1" ]; then
     # Create the fuzz build
     cd "$FUZZ_DIR"
     info fuzz "running build script"
-    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS" CXXFLAGS="$DBG_FLAGS" \
+    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS $EXTRA_CFLAGS" \
+	CXXFLAGS="$DBG_FLAGS $EXTRA_CXXFLAGS" \
         bash "$1"
 
     if [ "$?" -ne 0 ]; then
@@ -72,7 +76,7 @@ if [ -n "$1" ]; then
     # Create the coverage build
     cd "$COV_DIR"
     info cov "running build script"
-    CFLAGS="$COV_CFLAGS" CXXFLAGS="$COV_CFLAGS" \
+    CFLAGS="$COV_CFLAGS $EXTRA_CFLAGS" CXXFLAGS="$COV_CFLAGS $EXTRA_CXXFLAGS" \
         bash "$1"
 
     if [ "$?" -ne 0 ]; then
@@ -91,7 +95,8 @@ if [ -e "$SRC_DIR/configure" ]; then
     # Configure the debug build
     cd "$SRC_DIR"
     info dbg "running configure script"
-    CFLAGS="-O0 $DBG_FLAGS" CXXFLAGS="-O0 $DBG_FLAGS" \
+    CFLAGS="-O0 $DBG_FLAGS $EXTRA_CFLAGS" \
+	CXXFLAGS="-O0 $DBG_FLAGS $EXTRA_CXXFLAGS" \
         ./configure
 
     if [ "$?" -ne 0 ]; then
@@ -101,7 +106,8 @@ if [ -e "$SRC_DIR/configure" ]; then
     # Configure the fuzz build
     cd "$FUZZ_DIR"
     info fuzz "running configure script"
-    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS" CXXFLAGS="$DBG_FLAGS" \
+    CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS $EXTRA_CFLAGS" \
+	CXXFLAGS="$DBG_FLAGS $EXTRA_CXXFLAGS" \
         ./configure
 
     if [ "$?" -ne 0 ]; then
@@ -111,7 +117,8 @@ if [ -e "$SRC_DIR/configure" ]; then
     # Configure the cov build
     cd "$COV_DIR"
     info cov "running configure script"
-    CFLAGS="$COV_CFLAGS" CXXFLAGS="$COV_CFLAGS" LIBS="gcov"
+    CFLAGS="$COV_CFLAGS $EXTRA_CFLAGS" CXXFLAGS="$COV_CFLAGS $EXTRA_CXXFLAGS" \
+	LIBS="gcov"
         ./configure
 
     if [ "$?" -ne 0 ]; then
@@ -139,8 +146,8 @@ if [ -e "$SRC_DIR/Makefile" ]; then
     make -j `nproc` \
         CC="$FUZZ_CC" \
         CXX="$FUZZ_CXX" \
-        CFLAGS="$DBG_FLAGS" \
-        CXXFLAGS="$DBG_FLAGS"
+        CFLAGS="$DBG_FLAGS $EXTRA_CFLAGS" \
+        CXXFLAGS="$DBG_FLAGS $EXTRA_CXXFLAGS"
 
     if [ "$?" -ne 0 ]; then
         error fuzz "make failed!"
@@ -156,8 +163,8 @@ if [ -e "$SRC_DIR/Makefile" ]; then
     log cov "running make"
     make clean &> /dev/null
     make -j `nproc` \
-        CFLAGS="$COV_CFLAGS" \
-        CXXFLAGS="$COV_CFLAGS"
+        CFLAGS="$COV_CFLAGS $EXTRA_CFLAGS" \
+        CXXFLAGS="$COV_CFLAGS $EXTRA_CXXFLAGS"
 
     if [ "$?" -ne 0 ]; then
         error cov "make failed!"
