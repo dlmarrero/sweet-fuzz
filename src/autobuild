@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Defines logging functions
-source /src/logging.sh
+source "${SWEET_SRC}/logging.sh"
 
 # Check if the directory containing the project source is in the enviornment
 # If not, set a default directory
