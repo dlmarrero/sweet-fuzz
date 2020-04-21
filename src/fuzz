@@ -41,6 +41,11 @@ Other stuff:
     # without actually having to add them to the parser. Lazy, but effective.
     args, other_args = parser.parse_known_args()
 
+    # Another hack to handle cases where cmdline uses a reserved switch option
+    # In that case, you have to pass the cmdline as a quoted string :(
+    if len(args.cmdline) == 1 and ' ' in args.cmdline[0]:
+        args.cmdline = args.cmdline[0].split()
+
     # These next few funcs have side effects
     # They will kill the program if the args are invalid
     # They also modify the args (e.g. when resolving paths)
