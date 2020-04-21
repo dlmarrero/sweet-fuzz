@@ -51,12 +51,20 @@ if [ -n "$1" ]; then
         error "Invalid path to build script: $1"
     fi
 
+    # Ensure we have an absolute path to the build script
+    # since we're going to be changing dirs for each build
+    build_script="$1"
+    if [ ! -e "/$build_script" ]; then
+        # Path does not extend from / dir. assume relative
+        build_script="$PWD/$build_script"
+    fi
+
     # Create the debug build
     cd "$SRC_DIR"
     info dbg "running build script"
     CFLAGS="-O0 $DBG_FLAGS $EXTRA_CFLAGS" \
 	CXXFLAGS="-O0 $DBG_FLAGS $EXTRA_CXXFLAGS" \
-        bash "$1"
+        bash "$build_script"
 
     if [ "$?" -ne 0 ]; then
         error dbg "build script failed!"
@@ -67,7 +75,7 @@ if [ -n "$1" ]; then
     info fuzz "running build script"
     CC="$FUZZ_CC" CXX="$FUZZ_CXX" CFLAGS="$DBG_FLAGS $EXTRA_CFLAGS" \
 	CXXFLAGS="$DBG_FLAGS $EXTRA_CXXFLAGS" \
-        bash "$1"
+        bash "$build_script"
 
     if [ "$?" -ne 0 ]; then
         error fuzz "build script failed!"
@@ -77,7 +85,7 @@ if [ -n "$1" ]; then
     cd "$COV_DIR"
     info cov "running build script"
     CFLAGS="$COV_CFLAGS $EXTRA_CFLAGS" CXXFLAGS="$COV_CFLAGS $EXTRA_CXXFLAGS" \
-        bash "$1"
+        bash "$build_script"
 
     if [ "$?" -ne 0 ]; then
         error cov "build script failed!"
