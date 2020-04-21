@@ -75,12 +75,16 @@ def run_afl_instance(cpu_id: int, afl_args, cmdline: list, master=False):
                 logger.debug(line)
         elif "Entering queue cycle" in line:
             logger.info(line)
+        elif "PROGRAM ABORT" in line or "Location" in line:
+            # afl-fuzz instance failed to start
+            logger.critical(line)
         else:
             logger.debug(line)
 
     # Wait for process to exit and check return code
     proc.wait()
     if proc.returncode != 0:
+        # TODO signal to other threads that things have gone wrong (specifcally afl-cov)
         logger.critical("AFL instance returned non-zero exit code: %d" % proc.returncode)
         logger.critical("Failed command: %s" % " ".join(run_args))
 
