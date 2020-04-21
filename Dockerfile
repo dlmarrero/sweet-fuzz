@@ -12,6 +12,9 @@ RUN install_packages build-essential automake autoconf libtool cmake vim git \
 RUN git clone https://github.com/AFLplusplus/AFLplusplus
 RUN cd AFLplusplus && make -j`nproc` distrib && make install
 
+# Set a default SRC_DIR for scripts to use
+ENV SRC_DIR=/project
+
 # Bring in scripts and add them to the path
 COPY src/ /sweet-src/
 ENV SWEET_SRC=/sweet-src

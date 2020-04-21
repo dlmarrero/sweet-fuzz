@@ -124,7 +124,7 @@ def run_webserver(fuzz_out_dir, port):
 
 def init_parser(add_help=True):
     parser = argparse.ArgumentParser(description='Run afl-cov and serve the web report', add_help=add_help)
-    parser.add_argument('--cov-dir', default='/*-cov',
+    parser.add_argument('--cov-dir', default='./*-cov',
                         help='absolute path to the dir containing the coverage build')
     parser.add_argument('--port', type=int, default=8000,
                         help='port on which to serve the web report')

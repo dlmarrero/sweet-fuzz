@@ -180,7 +180,7 @@ For additional help please consult /usr/local/share/doc/afl/README.md
     # Add our custom arguments
     parser.add_argument("-j", metavar="num instances", type=int, default=(get_nproc() // 2),
                         help="number of AFL instances to run (default = nproc / 2")
-    parser.add_argument('--fuzz-dir', default='/*-fuzz',
+    parser.add_argument('--fuzz-dir', default='./*-fuzz',
                         help='absolute path to root of fuzz build')
 
     return parser

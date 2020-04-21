@@ -22,11 +22,20 @@ def die(msg, code = 1):
 
 
 def resolve_glob(glob_path):
-    paths = glob(glob_path)
+    # Need to glob in $SRC_DIR/../ since the location of SRC_DIR 
+    # is arbitrary and the other build dirs will always be siblings
+    src_dir = os.getenv('SRC_DIR')
+    if not src_dir:
+        die('SRC_DIR enviornment variable not set!')
+
+    parent_dir = f'{src_dir}/../'
+    search_path = os.path.abspath(os.path.join(parent_dir, glob_path))
+
+    paths = glob(search_path)
 
     # Make sure we got exactly one result
     if len(paths) is 0:
-        die(f'Glob search for coverage source dir failed ({glob_path})')
+        die(f'Glob search for source dir failed ({search_path})')
     if len(paths) > 1:
         die('Glob search returned multiple results: ' + str(paths))
 
