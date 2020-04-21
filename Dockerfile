@@ -13,7 +13,7 @@ RUN git clone https://github.com/AFLplusplus/AFLplusplus
 RUN cd AFLplusplus && make -j`nproc` distrib && make install
 
 # Bring in scripts and add them to the path
-COPY src/ /sweet-fuzz/
-ENV SWEET_SRC=/sweet-fuzz
+COPY src/ /sweet-src/
+ENV SWEET_SRC=/sweet-src
 ENV PATH="${PATH}:${SWEET_SRC}"
 
