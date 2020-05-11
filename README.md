@@ -80,3 +80,6 @@ Other stuff:
 
 A single `-v` will log new function coverage. `-vv` will log new line coverage.
 
+## TODO
+- [ ] Add a `gprof` build option to troubleshoot slow harnesses with profiling data
+

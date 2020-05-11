@@ -28,3 +28,7 @@
 * Would also be cool to integrate ikos
 * Try to get clang 9 so we can use LTO collision free llvm_mode
 
+* rename covfuzz.py
+* specifying --fuzz-dir does not override glob search (should be called --fuzz-src)
+* incorporate honggfuzz
+* last path info in log output
